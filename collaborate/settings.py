@@ -80,12 +80,8 @@ WSGI_APPLICATION = 'collaborate.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'SE_PROJECT',
-        'USER': 'root',
-        'PASSWORD': 'October1990@W',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -126,3 +122,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# Tell Django to trust the Codespace URL for security checks
+CSRF_TRUSTED_ORIGINS = [
+    'https://congenial-fortnight-r4w46j44gr4q3p6wj-8000.app.github.dev',
+]
+
+# Allow any host to access the server in this dev environment
+ALLOWED_HOSTS = ['*']
