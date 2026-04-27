@@ -1,13 +1,39 @@
 from rest_framework import serializers
 from .models import Task, Team, Comment
-from django.contrib.auth.models import User
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'task', 'user', 'text', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
 
 class TaskSerializer(serializers.ModelSerializer):
+    assigned_to = serializers.StringRelatedField(read_only=True)
+    team_name = serializers.StringRelatedField(source='team.name', read_only=True)
+
     class Meta:
         model = Task
-        fields = '__all__'
+        fields = [
+            'id',
+            'title',
+            'description',
+            'priority',
+            'deadline',
+            'assigned_to',
+            'team',
+            'team_name',
+            'completed',
+            'created_at',
+        ]
+        extra_kwargs = {
+            'assigned_to': {'read_only': True},
+        }
 
 class TeamSerializer(serializers.ModelSerializer):
+    members = serializers.StringRelatedField(many=True, read_only=True)
+
     class Meta:
         model = Team
-        fields = '__all__'
+        fields = ['id', 'name', 'members']

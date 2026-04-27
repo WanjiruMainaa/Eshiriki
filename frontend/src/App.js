@@ -1,59 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import Login from './Login';
 import Register from './Register';
-
-// Set up axios defaults for authentication
-axios.defaults.baseURL = 'http://127.0.0.1:8000';
-
-// Add token to requests if available
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import {
+  getTasks,
+  createTask,
+  deleteTask,
+  getTeams,
+  getComments,
+  postComment,
+} from './api';
+import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState('login'); // 'login', 'register', 'dashboard'
+  const [currentView, setCurrentView] = useState('login');
   const [tasks, setTasks] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [user, setUser] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'Medium',
+    deadline: '',
+    team: '',
+  });
+  const [commentsByTask, setCommentsByTask] = useState({});
+  const [openComments, setOpenComments] = useState({});
+  const [commentInputs, setCommentInputs] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Check if user is already logged in on app start
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (token) {
       setIsAuthenticated(true);
       setCurrentView('dashboard');
-      // You could decode the token to get user info, but for simplicity we'll just set authenticated
-      setUser({ username: 'User' }); // In a real app, decode JWT to get username
+      setUser({ username: 'User' });
     }
   }, []);
 
-  // Fetch tasks when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      axios.get('/api/tasks/')
-        .then(res => setTasks(res.data))
-        .catch(() => setTasks([
-          { id: 1, title: "Finish SE Project", priority: "High", deadline: "Today", assigned_to: "Gibson" },
-          { id: 2, title: "Final Demo", priority: "Medium", deadline: "Tomorrow", assigned_to: "Wanjiru" }
-        ]));
+      loadTasks();
+      loadTeams();
     }
   }, [isAuthenticated]);
+
+  const loadTasks = async () => {
+    try {
+      const res = await getTasks();
+      setTasks(res.data);
+    } catch (error) {
+      setTasks([]);
+    }
+  };
+
+  const loadTeams = async () => {
+    try {
+      const res = await getTeams();
+      setTeams(res.data);
+      if (res.data.length && !newTask.team) {
+        setNewTask((prev) => ({ ...prev, team: res.data[0].id }));
+      }
+    } catch (error) {
+      setTeams([]);
+    }
+  };
+
+  const stats = {
+    total: tasks.length,
+    completed: tasks.filter((task) => task.completed).length,
+    pending: tasks.filter((task) => !task.completed).length,
+  };
+
+  const progress = stats.total ? Math.round((stats.completed / stats.total) * 100) : 0;
 
   const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('dashboard');
-    setUser({ username: 'User' }); // In a real app, get from token
+    setUser({ username: 'User' });
   };
 
   const handleLogout = () => {
@@ -63,16 +89,85 @@ function App() {
     setCurrentView('login');
     setUser(null);
     setShowDropdown(false);
+    setTasks([]);
+    setCommentsByTask({});
+    setOpenComments({});
   };
 
   const handleRegister = () => {
-    setCurrentView('login'); // After registration, go to login
+    setCurrentView('login');
+  };
+
+  const toggleComments = async (taskId) => {
+    const currentlyOpen = !!openComments[taskId];
+    setOpenComments((prev) => ({ ...prev, [taskId]: !currentlyOpen }));
+
+    if (!currentlyOpen && !commentsByTask[taskId]) {
+      try {
+        const res = await getComments(taskId);
+        setCommentsByTask((prev) => ({ ...prev, [taskId]: res.data }));
+      } catch (error) {
+        setCommentsByTask((prev) => ({ ...prev, [taskId]: [] }));
+      }
+    }
+  };
+
+  const handleCommentChange = (taskId, value) => {
+    setCommentInputs((prev) => ({ ...prev, [taskId]: value }));
+  };
+
+  const handlePostComment = async (taskId) => {
+    const text = (commentInputs[taskId] || '').trim();
+    if (!text) return;
+
+    try {
+      await postComment(taskId, text);
+      const res = await getComments(taskId);
+      setCommentsByTask((prev) => ({ ...prev, [taskId]: res.data }));
+      setCommentInputs((prev) => ({ ...prev, [taskId]: '' }));
+    } catch (error) {
+      setErrorMessage('Unable to post comment.');
+    }
+  };
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    if (!newTask.title || !newTask.deadline || !newTask.team) {
+      setErrorMessage('Title, deadline, and team are required.');
+      return;
+    }
+
+    try {
+      await createTask(newTask);
+      setShowNewTaskModal(false);
+      setNewTask({
+        title: '',
+        description: '',
+        priority: 'Medium',
+        deadline: '',
+        team: teams[0]?.id || '',
+      });
+      setErrorMessage('');
+      loadTasks();
+    } catch (error) {
+      setErrorMessage('Unable to create task.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+      loadTasks();
+    } catch (error) {
+      setErrorMessage('Unable to delete task.');
+    }
   };
 
   if (!isAuthenticated) {
     if (currentView === 'register') {
       return <Register onRegister={handleRegister} />;
     }
+
     return (
       <div>
         <Login onLogin={handleLogin} />
@@ -84,7 +179,7 @@ function App() {
               textDecoration: 'underline',
               background: 'none',
               border: 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             Don't have an account? Register here
@@ -95,19 +190,17 @@ function App() {
   }
 
   return (
-    <div>
-      {/* Navbar with Profile */}
+    <div className="app-shell">
       <nav className="navbar">
         <div className="navbar-content">
           <h1>Eshiriki Dashboard</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button className="btn-secondary">+ New Task</button>
+          <div className="navbar-actions">
+            <button className="btn-primary" onClick={() => setShowNewTaskModal(true)}>
+              + New Task
+            </button>
             <div className="profile-dropdown">
-              <button
-                className="profile-btn"
-                onClick={() => setShowDropdown(!showDropdown)}
-              >
-                <span style={{ marginRight: '5px' }}>{user?.username}</span>
+              <button className="profile-btn" onClick={() => setShowDropdown(!showDropdown)}>
+                <span>{user?.username}</span>
                 <span>▼</span>
               </button>
               {showDropdown && (
@@ -120,21 +213,166 @@ function App() {
         </div>
       </nav>
 
-      {/* Dashboard Content */}
-      <div className="dashboard">
-        <div className="task-grid">
-          {tasks.map(task => (
+      <div className="dashboard-container">
+        <section className="stats-panel">
+          <div className="stats-header">
+            <div>
+              <h2>Project Stats</h2>
+              <p>Overview of current task progress.</p>
+            </div>
+            <span className="stats-user">{user?.username}</span>
+          </div>
+
+          <div className="stats-cards">
+            <div className="stat-card">
+              <span>Total Tasks</span>
+              <strong>{stats.total}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Completed</span>
+              <strong>{stats.completed}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Pending</span>
+              <strong>{stats.pending}</strong>
+            </div>
+          </div>
+
+          <div className="progress-row">
+            <span>Completion</span>
+            <div className="progress-bar-outer">
+              <div className="progress-bar-inner" style={{ width: `${progress}%` }} />
+            </div>
+            <span>{progress}%</span>
+          </div>
+        </section>
+
+        <section className="task-grid">
+          {tasks.map((task) => (
             <div key={task.id} className="task-card">
-              <span className={`task-priority ${task.priority === 'High' ? 'priority-high' : 'priority-medium'}`}>
+              <div className="task-card-header">
+                <h3>{task.title}</h3>
+                <button className="btn-delete" onClick={() => handleDeleteTask(task.id)}>
+                  Delete
+                </button>
+              </div>
+              <span className={`task-priority ${task.priority === 'High' ? 'priority-high' : task.priority === 'Low' ? 'priority-low' : 'priority-medium'}`}>
                 {task.priority}
               </span>
-              <h3 className="task-title">{task.title}</h3>
-              <p className="task-deadline">Due: {task.deadline}</p>
-              <p className="task-assignee">Assignee: {task.assigned_to}</p>
+              <p className="task-description">{task.description || 'No description yet.'}</p>
+              <div className="task-meta">Due: {task.deadline}</div>
+              <div className="task-meta">Team: {task.team_name || task.team}</div>
+              <div className="task-meta">Assigned to: {task.assigned_to || user?.username}</div>
+
+              <button className="btn-secondary small" onClick={() => toggleComments(task.id)}>
+                {openComments[task.id] ? 'Hide Comments' : 'Show Comments'}
+              </button>
+
+              {openComments[task.id] && (
+                <div className="comments-section">
+                  <div className="comments-list">
+                    {(commentsByTask[task.id] || []).length ? (
+                      commentsByTask[task.id].map((comment) => (
+                        <div key={comment.id} className="comment-row">
+                          <strong>{comment.user}</strong>
+                          <p>{comment.text}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="comment-empty">No comments yet.</div>
+                    )}
+                  </div>
+                  <div className="comment-form">
+                    <input
+                      type="text"
+                      value={commentInputs[task.id] || ''}
+                      onChange={(e) => handleCommentChange(task.id, e.target.value)}
+                      placeholder="Add a comment..."
+                    />
+                    <button className="btn-primary small" type="button" onClick={() => handlePostComment(task.id)}>
+                      Post
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
-        </div>
+        </section>
       </div>
+
+      {showNewTaskModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>New Task</h2>
+              <button className="close-button" onClick={() => setShowNewTaskModal(false)}>
+                ×
+              </button>
+            </div>
+            {errorMessage && <div className="error-message">{errorMessage}</div>}
+            <form onSubmit={handleCreateTask} className="new-task-form">
+              <label>
+                Title
+                <input
+                  value={newTask.title}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  value={newTask.description}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </label>
+              <label>
+                Deadline
+                <input
+                  type="date"
+                  value={newTask.deadline}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, deadline: e.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Priority
+                <select
+                  value={newTask.priority}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, priority: e.target.value }))}
+                >
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </label>
+              <label>
+                Team
+                <select
+                  value={newTask.team}
+                  onChange={(e) => setNewTask((prev) => ({ ...prev, team: e.target.value }))}
+                  required
+                >
+                  <option value="">Select a team</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <button type="submit" className="btn-primary">
+                  Create Task
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setShowNewTaskModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

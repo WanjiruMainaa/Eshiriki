@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { login } from './api';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -9,14 +9,10 @@ const Login = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/login/', {
-        username,
-        password,
-      });
-      // Store tokens in localStorage
+      const response = await login(username, password);
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      onLogin(); // Notify parent component
+      onLogin();
     } catch (err) {
       setError('Invalid credentials');
     }

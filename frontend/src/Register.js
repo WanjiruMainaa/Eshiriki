@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { registerUser } from './api';
 
 const Register = ({ onRegister }) => {
   const [username, setUsername] = useState('');
@@ -16,18 +16,14 @@ const Register = ({ onRegister }) => {
       return;
     }
     try {
-      await axios.post('http://127.0.0.1:8000/api/register/', {
-        username,
-        email,
-        password,
-      });
+      await registerUser(username, email, password);
       setSuccess('Registration successful! Please log in.');
       setError('');
-      // Clear form
       setUsername('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      onRegister();
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
       setSuccess('');
