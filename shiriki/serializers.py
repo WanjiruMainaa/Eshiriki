@@ -1,5 +1,15 @@
 from rest_framework import serializers
-from .models import Task, Team, Comment
+from .models import Task, Team, Comment, Profile
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['full_name', 'role', 'department']
+        extra_kwargs = {
+            'full_name': {'required': False},
+            'role': {'required': False},
+            'department': {'required': False},
+        }
 
 class CommentSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)

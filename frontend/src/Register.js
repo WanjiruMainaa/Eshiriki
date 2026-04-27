@@ -6,6 +6,9 @@ const Register = ({ onRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('');
+  const [department, setDepartment] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -16,13 +19,16 @@ const Register = ({ onRegister }) => {
       return;
     }
     try {
-      await registerUser(username, email, password);
+      await registerUser(username, email, password, fullName, role, department);
       setSuccess('Registration successful! Please log in.');
       setError('');
       setUsername('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setFullName('');
+      setRole('');
+      setDepartment('');
       onRegister();
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
@@ -65,6 +71,36 @@ const Register = ({ onRegister }) => {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              placeholder="Full Name (optional)"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <input
+              id="role"
+              name="role"
+              type="text"
+              placeholder="Role (optional)"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <input
+              id="department"
+              name="department"
+              type="text"
+              placeholder="Department (optional)"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
             />
           </div>
           <div className="form-group">

@@ -18,8 +18,8 @@ api.interceptors.request.use(
 export const login = (username, password) =>
   api.post('/api/login/', { username, password });
 
-export const registerUser = (username, email, password) =>
-  api.post('/api/register/', { username, email, password });
+export const registerUser = (username, email, password, fullName = '', role = '', department = '') =>
+  api.post('/api/register/', { username, email, password, full_name: fullName, role, department });
 
 export const getTasks = () => api.get('/api/tasks/');
 export const createTask = (payload) => api.post('/api/tasks/', payload);

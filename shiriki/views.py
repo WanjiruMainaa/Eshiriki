@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth.models import User
-from .models import Task, Team, Comment
-from .serializers import TaskSerializer, TeamSerializer, CommentSerializer
+from .models import Task, Team, Comment, Profile
+from .serializers import TaskSerializer, TeamSerializer, CommentSerializer, ProfileSerializer
 
 # Custom Token Obtain View (public access)
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -25,9 +25,12 @@ class UserRegistrationView(generics.CreateAPIView):
         username = request.data.get('username')
         email = request.data.get('email')
         password = request.data.get('password')
+        full_name = request.data.get('full_name', '')
+        role = request.data.get('role', '')
+        department = request.data.get('department', '')
 
         if not username or not email or not password:
-            return Response({'error': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Username, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(username=username).exists():
             return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
@@ -35,7 +38,8 @@ class UserRegistrationView(generics.CreateAPIView):
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Email already exists'}, status=status.HTTP_400_BAD_REQUEST)
 
-        User.objects.create_user(username=username, email=email, password=password)
+        user = User.objects.create_user(username=username, email=email, password=password)
+        Profile.objects.create(user=user, full_name=full_name, role=role, department=department)
         return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
 
 class TaskViewSet(viewsets.ModelViewSet):
